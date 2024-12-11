@@ -1,0 +1,33 @@
+name: Deploy Data Collector Application
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: Deploy to production
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DEPLOY_SSH_HOST }}
+        username: ${{ secrets.DEPLOY_SSH_USERNAME }}
+        key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        script: |
+          cd ~/quant-craft-data
+          git pull origin main
+          cp ~/config.yaml .
+          
+          # Check if process is running on port 8080
+          if lsof -i:8080 > /dev/null; then
+            echo "Stopping existing process on port 8080..."
+            kill $(lsof -t -i:8080)
+            # Wait for process to stop
+            sleep 5
+          fi
+          
+          # Install requirements
+          pip install -r requirements.txt
+          
+          # Start application
+          nohup python3 main.py > app.log 2>&1 &
